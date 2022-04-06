@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.26.0 (40646f47)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: place-order-ms
+  name: place-order-ms
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: place-order-ms
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert
+        kompose.version: 1.26.0 (40646f47)
+      creationTimestamp: null
+      labels:
+        io.kompose.service: place-order-ms
+    spec:
+      containers:
+        - env:
+            - name: ENVIRONMENT
+              valueFrom:
+                configMapKeyRef:
+                  key: ENVIRONMENT
+                  name: env
+            - name: ORDER_MS
+              valueFrom:
+                configMapKeyRef:
+                  key: ORDER_MS
+                  name: env
+            - name: PRODUCT_MS
+              valueFrom:
+                configMapKeyRef:
+                  key: PRODUCT_MS
+                  name: env
+            - name: SHIPPING_MS
+              valueFrom:
+                configMapKeyRef:
+                  key: SHIPPING_MS
+                  name: env
+          image: nixxholas/place-order-ms
+          name: place-order-ms
+          ports:
+            - containerPort: 3000
+          resources: {}
+      restartPolicy: Always
+status: {}

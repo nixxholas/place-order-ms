@@ -2,9 +2,12 @@ use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 use axum::http::{StatusCode};
 use axum::{Router, Json};
+use axum::body::HttpBody;
 use axum::extract::{Extension, Path, Query};
 use axum::routing::{get};
-use tracing::{error, info};
+use serde_json::Value;
+use tracing::{debug, error, info};
+use tracing::field::debug;
 use crate::actions::{ApiContext};
 
 pub fn router() -> Router {
@@ -30,13 +33,13 @@ struct Order {
 #[derive(Clone, Serialize, Deserialize)]
 struct CreatedOrderResult {
     code: u32,
-    data: String
+    data: CreatedOrder
 }
 
 #[derive(Clone, Serialize, Deserialize)]
 struct CreatedShipmentResult {
     code: u32,
-    data: String,
+    data: CreatedShipment,
     message: String
 }
 
@@ -49,14 +52,19 @@ struct CreatedOrder {
     supplier: String,
     order_status: String,
     dc: String,
-    date_created: chrono::NaiveDateTime,
+    // date_created: chrono::NaiveDateTime,
     dc_order_qty: i32
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+struct Preshipment {
+    email: String,
+    handled_by: String
 }
 
 #[derive(Clone, Serialize, Deserialize)]
 struct CreatedShipment {
     order_id: u64,
-    delivery_date: chrono::NaiveDateTime,
     shipping_status: String,
     handled_by: String
 }
@@ -93,43 +101,48 @@ async fn place_order(ctx: Extension<Arc<ApiContext>>, Json(payload): Json<Vec<Or
                     if let Ok(submitted_order_res) = order_response {
                         if submitted_order_res.status() == StatusCode::OK ||
                             submitted_order_res.status() == StatusCode::CREATED {
-                            let submitted_order_response: Result<CreatedOrder, _> =
-                                serde_json::from_str(&submitted_order_res.json::<CreatedOrderResult>().await.unwrap().data);
+                            let submitted_order_res_body = submitted_order_res.text().await.unwrap();
+                            let submitted_order: CreatedOrderResult =
+                                serde_json::from_str(&submitted_order_res_body).unwrap();
+                            let submitted_shipping_request = reqwest::Client::new()
+                                .post(format!("{}/shipping/create/{}", shipping_ms_url,
+                                              submitted_order.data.order_id))
+                                .json(&Preshipment {
+                                    email: order.email.to_string(),
+                                    handled_by: order.handled_by.to_string()
+                                })
+                                .send().await;
 
-                            if let Ok(submitted_order) = submitted_order_response {
-                                let submitted_shipping_request = reqwest::Client::new()
-                                    .post(format!("{}/shipping/create/{}", shipping_ms_url,
-                                                  submitted_order.order_id))
-                                    .send().await;
+                            if let Ok(shipment_response_result) = submitted_shipping_request {
+                                if shipment_response_result.status() == StatusCode::OK ||
+                                    shipment_response_result.status() == StatusCode::CREATED {
+                                    let _submitted_shipment_response: CreatedShipmentResult =
+                                        serde_json::from_str(&shipment_response_result.text().await.unwrap()).unwrap();
+                                    let new_product_change = ProductUpdate {
+                                        product_name: order.product_name,
+                                        incoming_stocks: order.incoming_stocks,
+                                        stocks: order.stocks
+                                    };
 
-                                if let Ok(shipment_response_result) = submitted_shipping_request {
-                                    if shipment_response_result.status() == StatusCode::OK ||
-                                        shipment_response_result.status() == StatusCode::CREATED {
-                                        let submitted_shipment_response: Result<CreatedShipment, _> =
-                                            serde_json::from_str(&shipment_response_result.json::<CreatedShipmentResult>().await.unwrap().data);
+                                    let product_call = reqwest::Client::new()
+                                        .put(format!("{}/product/update/one", product_ms_url))
+                                        .json(&new_product_change)
+                                        .send().await;
 
-                                        if let Ok(_) = submitted_shipment_response {
-                                            let new_product_change = ProductUpdate {
-                                                product_name: submitted_order.product_name,
-                                                incoming_stocks: order.incoming_stocks,
-                                                stocks: order.stocks
-                                            };
-
-                                            let product_call = reqwest::Client::new()
-                                                .post(format!("{}/product/update/one", product_ms_url))
-                                                .json(&new_product_change)
-                                                .send().await;
-
-                                            if let Ok(product_update_resposne) = product_call {
-                                                if product_update_resposne.status() == StatusCode::OK ||
-                                                    product_update_resposne.status() == StatusCode::CREATED {
-                                                    return Ok(StatusCode::OK)
-                                                }
-                                            }
-                                         }
+                                    if let Ok(product_update_response) = product_call {
+                                        if product_update_response.status() == StatusCode::OK ||
+                                            product_update_response.status() == StatusCode::CREATED {
+                                            return Ok(StatusCode::OK)
+                                        }
                                     }
+                                } else {
+                                    return Err(shipment_response_result.status())
                                 }
+                            } else {
+                                return Err(submitted_shipping_request.unwrap_err().status().unwrap())
                             }
+                        } else {
+                            return Err(submitted_order_res.status())
                         }
                     }
 
@@ -137,23 +150,13 @@ async fn place_order(ctx: Extension<Arc<ApiContext>>, Json(payload): Json<Vec<Or
                 })
             })
             .collect();
+
+        for order_task in order_tasks {
+            let _result = order_task.await;
+        }
+    } else {
+        return Err(StatusCode::NO_CONTENT)
     }
 
     Ok(StatusCode::OK)
-    // match rs {
-    //     Ok(mut rs) => {
-    //         // let mut data: Vec<FleetCloseAccount> = Vec::new();
-    //         // while rs.next_row() {
-    //         //     data.push(FleetCloseAccount {
-    //         //         user: rs.get_string(0).unwrap().unwrap(),
-    //         //         ship_mint: rs.get_string(1).unwrap().unwrap(),
-    //         //         timestamp: rs.get_i64(2).unwrap().unwrap(),
-    //         //     });
-    //         // }
-    //     }
-    //     Err(e) => {
-    //         error!("{:?}", e);
-    //         Err(StatusCode::INTERNAL_SERVER_ERROR)
-    //     }
-    // }
 }

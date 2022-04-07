@@ -1,3 +1,27 @@
+#FROM debian:buster-slim
+#RUN apt-get install -y pkg-config libssl-dev
+#
+#FROM rust:1.57.0-alpine as builder
+#RUN apk add --no-cache musl-dev
+#WORKDIR /opt
+#RUN USER=root cargo new --bin poms
+#WORKDIR /opt/poms
+#COPY ./Cargo.toml ./Cargo.toml
+#
+#RUN cargo build --release
+#RUN rm ./src/*.rs
+#RUN rm ./target/release/deps/poms*
+#
+#ADD ./src ./src
+#RUN cargo build --release
+#
+#FROM scratch
+#WORKDIR /opt/poms
+#COPY --from=builder /opt/poms/target/release/poms .
+#
+#EXPOSE 5000
+#CMD ["/opt/poms/poms"]
+
 FROM rust:1.59.0 as builder
 
 # Install libudev for 'hidapi'
@@ -7,15 +31,15 @@ RUN apt-get update -y \
 RUN rustup component add rustfmt
 
 # Build cargo crates
-RUN USER=root cargo new --bin place-order-ms
-WORKDIR ./place-order-ms
+RUN USER=root cargo new --bin poms
+WORKDIR ./poms
 COPY ./Cargo.toml ./Cargo.toml
 RUN cargo build --release
 RUN rm src/*.rs
 
-# Build place-order-ms project
+# Build poms project
 COPY . .
-RUN rm ./target/release/deps/place-order-ms*
+RUN rm ./target/release/deps/poms*
 RUN cargo build --release
 
 # Run-time container
@@ -31,10 +55,10 @@ RUN groupadd $APP_USER \
 RUN apt-get update -y \
     && apt-get install -y ca-certificates openssl
 
-COPY --from=builder /place-order-ms/target/release/place-order-ms ${APP}/place-order-ms
+COPY --from=builder /poms/target/release/poms ${APP}/poms
 
 RUN chown -R $APP_USER:$APP_USER ${APP}
 
 USER $APP_USER
 WORKDIR ${APP}
-CMD ["./place-order-ms"]
+CMD ["./poms"]

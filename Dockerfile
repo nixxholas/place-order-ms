@@ -15,7 +15,7 @@ RUN rm src/*.rs
 
 # Build place-order-ms project
 COPY . .
-#RUN rm ./target/release/deps/place-order-ms*
+RUN rm ./target/release/deps/place-order-ms*
 RUN cargo build --release
 
 # Run-time container

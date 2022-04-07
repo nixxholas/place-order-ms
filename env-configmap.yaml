@@ -9,4 +9,4 @@ metadata:
   creationTimestamp: null
   labels:
     io.kompose.service: place-order-ms-env
-  name: env
+  name: place-order-env

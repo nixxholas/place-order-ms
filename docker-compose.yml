@@ -1,9 +1,9 @@
 version: '3'
 services:
-  thalia:
+  place-order-ms:
     image: 'nixxholas/place-order-ms'
     build: ./
     ports:
-      - 3000:3000
+      - 3003:3003
     env_file:
       - .env

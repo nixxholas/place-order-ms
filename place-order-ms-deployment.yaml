@@ -7,7 +7,7 @@ metadata:
   creationTimestamp: null
   labels:
     io.kompose.service: place-order-ms
-  name: place-order-ms
+  name: placeorder
 spec:
   replicas: 1
   selector:
@@ -29,26 +29,29 @@ spec:
               valueFrom:
                 configMapKeyRef:
                   key: ENVIRONMENT
-                  name: env
+                  name: place-order-env
             - name: ORDER_MS
               valueFrom:
                 configMapKeyRef:
                   key: ORDER_MS
-                  name: env
+                  name: place-order-env
             - name: PRODUCT_MS
               valueFrom:
                 configMapKeyRef:
                   key: PRODUCT_MS
-                  name: env
+                  name: place-order-env
             - name: SHIPPING_MS
               valueFrom:
                 configMapKeyRef:
                   key: SHIPPING_MS
-                  name: env
-          image: nixxholas/place-order-ms
+                  name: place-order-env
+          image: ghcr.io/nixxholas/place_order_ms:latest
           name: place-order-ms
+          imagePullPolicy: Always
           ports:
-            - containerPort: 3000
+            - containerPort: 3003
           resources: {}
       restartPolicy: Always
+      imagePullSecrets:
+        - name: docker-gcr-creds
 status: {}

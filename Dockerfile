@@ -31,15 +31,15 @@ RUN apt-get update -y \
 RUN rustup component add rustfmt
 
 # Build cargo crates
-RUN USER=root cargo new --bin poms
-WORKDIR ./poms
+RUN USER=root cargo new --bin place-order-ms
+WORKDIR ./place-order-ms
 COPY ./Cargo.toml ./Cargo.toml
 RUN cargo build --release
 RUN rm src/*.rs
 
-# Build poms project
+# Build place-order-ms project
 COPY . .
-#RUN rm ./target/release/deps/poms*
+RUN rm ./target/release/deps/place-order-ms*
 RUN cargo build --release
 
 # Run-time container
@@ -55,10 +55,10 @@ RUN groupadd $APP_USER \
 RUN apt-get update -y \
     && apt-get install -y ca-certificates openssl
 
-COPY --from=builder /poms/target/release/poms ${APP}/poms
+COPY --from=builder /place-order-ms/target/release/place-order-ms ${APP}/place-order-ms
 
 RUN chown -R $APP_USER:$APP_USER ${APP}
 
 USER $APP_USER
 WORKDIR ${APP}
-CMD ["./poms"]
+CMD ["./place-order-ms"]

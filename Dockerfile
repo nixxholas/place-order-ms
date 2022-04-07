@@ -39,7 +39,7 @@ RUN rm src/*.rs
 
 # Build poms project
 COPY . .
-RUN rm ./target/release/deps/poms*
+#RUN rm ./target/release/deps/poms*
 RUN cargo build --release
 
 # Run-time container
